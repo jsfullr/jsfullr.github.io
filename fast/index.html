@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fast</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fast">
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --line: #2a2e38;
+    --text: #f2f3f5;
+    --muted: #8b90a0;
+    --accent: #ff7a45;
+    --accent2: #ffb347;
+    --good: #3ecf8e;
+    --danger: #ff5c5c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 24px);
+    min-height: 100vh;
+    -webkit-user-select: none; user-select: none;
+  }
+  main { max-width: 480px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0 8px; }
+  h1 { font-size: 28px; margin: 0; letter-spacing: -0.5px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 28px 0 10px; font-weight: 600; }
+
+  .ring-wrap { position: relative; width: min(78vw, 320px); aspect-ratio: 1; margin: 12px auto 4px; }
+  .ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-bg { stroke: var(--line); }
+  .ring-fg { stroke: url(#grad); stroke-linecap: round; transition: stroke-dashoffset .5s ease; }
+  .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .status { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .elapsed { font-size: 46px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -1px; margin: 4px 0; }
+  .sub { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pct { font-size: 15px; color: var(--accent2); font-weight: 600; margin-top: 4px; }
+  .done .pct { color: var(--good); }
+
+  .times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .time-card { background: var(--card); border-radius: 14px; padding: 12px 14px; border: 0; color: inherit; text-align: left; font: inherit; }
+  .time-card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+  .time-card .val { font-size: 17px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .time-card .edit { font-size: 12px; color: var(--accent); margin-top: 2px; }
+  button.time-card { cursor: pointer; }
+  button.time-card:active { opacity: .7; }
+
+  .goals { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .goals::-webkit-scrollbar { display: none; }
+  .goal { flex: 0 0 auto; background: var(--card); border: 1.5px solid transparent; color: var(--text); border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 600; min-width: 64px; }
+  .goal small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); }
+  .goal.sel { border-color: var(--accent); background: #2a1d17; }
+
+  .btn { display: block; width: 100%; border: 0; border-radius: 16px; padding: 17px; font: inherit; font-size: 18px; font-weight: 700; margin-top: 18px; color: #fff; }
+  .btn:active { transform: scale(.98); opacity: .9; }
+  .btn.start { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #1a0f08; }
+  .btn.end { background: var(--card); color: var(--danger); }
+  .btn.secondary { background: var(--card); color: var(--text); font-size: 16px; padding: 14px; margin-top: 10px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: var(--card); border-radius: 14px; padding: 12px; text-align: center; }
+  .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+
+  .history { list-style: none; margin: 0; padding: 0; background: var(--card); border-radius: 14px; overflow: hidden; }
+  .history li { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-top: 1px solid var(--line); cursor: pointer; }
+  .history li:first-child { border-top: 0; }
+  .history li:active { background: #22262f; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; background: var(--muted); }
+  .dot.hit { background: var(--good); }
+  .h-main { flex: 1; min-width: 0; }
+  .h-dur { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .h-when { font-size: 13px; color: var(--muted); }
+  .h-goal { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); text-align: center; padding: 20px; font-size: 14px; }
+
+  /* sheet */
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
+  .backdrop.open { display: flex; }
+  .sheet { background: var(--card); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px); animation: up .22s ease; -webkit-user-select: text; user-select: text; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } }
+  .sheet h3 { margin: 0 0 14px; font-size: 18px; text-align: center; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+  .field input, .field select { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font: inherit; font-size: 17px; -webkit-appearance: none; appearance: none; min-height: 48px; }
+  .quick { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .quick button { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 14px; }
+  .err { color: var(--danger); font-size: 14px; min-height: 20px; margin: -4px 0 6px; }
+  .row { display: flex; gap: 10px; }
+  .row .btn { margin-top: 6px; }
+  .btn.save { background: var(--accent); color: #1a0f08; }
+  .btn.cancel { background: var(--bg); color: var(--text); }
+  .btn.delete { background: transparent; color: var(--danger); font-size: 15px; padding: 10px; margin-top: 8px; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>Fast</h1></header>
+
+  <div class="ring-wrap" id="ringWrap">
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <defs>
+        <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ff7a45"/><stop offset="1" stop-color="#ffb347"/>
+        </linearGradient>
+      </defs>
+      <circle class="ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="9"/>
+      <circle class="ring-fg" id="ring" cx="60" cy="60" r="52" fill="none" stroke-width="9"/>
+    </svg>
+    <div class="ring-center">
+      <div class="status" id="status">Not fasting</div>
+      <div class="elapsed" id="elapsed">0:00:00</div>
+      <div class="sub" id="remaining"></div>
+      <div class="pct" id="pct"></div>
+    </div>
+  </div>
+
+  <div id="activeView" hidden>
+    <div class="times">
+      <button class="time-card" id="editStartBtn">
+        <div class="label">Started</div>
+        <div class="val" id="startVal"></div>
+        <div class="edit">Edit</div>
+      </button>
+      <button class="time-card" id="editGoalBtn">
+        <div class="label">Goal ends</div>
+        <div class="val" id="goalVal"></div>
+        <div class="edit" id="goalHrs"></div>
+      </button>
+    </div>
+    <button class="btn end" id="endBtn">End Fast</button>
+  </div>
+
+  <div id="idleView">
+    <h2>Goal</h2>
+    <div class="goals" id="goals"></div>
+    <button class="btn start" id="startBtn">Start Fast</button>
+    <button class="btn secondary" id="startEarlierBtn">Started earlier…</button>
+  </div>
+
+  <h2>Stats</h2>
+  <div class="stats">
+    <div class="stat"><b id="statCount">0</b><span>Fasts</span></div>
+    <div class="stat"><b id="statAvg">–</b><span>Avg</span></div>
+    <div class="stat"><b id="statLong">–</b><span>Longest</span></div>
+  </div>
+
+  <h2>History</h2>
+  <ul class="history" id="history"></ul>
+</main>
+
+<div class="backdrop" id="sheetBg">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <h3 id="sheetTitle"></h3>
+    <div class="field" id="startField">
+      <label for="startInput">Start time</label>
+      <input type="datetime-local" id="startInput">
+      <div class="quick" id="startQuick">
+        <button data-min="-60">−1h</button>
+        <button data-min="-15">−15m</button>
+        <button data-min="15">+15m</button>
+        <button data-min="60">+1h</button>
+      </div>
+    </div>
+    <div class="field" id="endField">
+      <label for="endInput">End time</label>
+      <input type="datetime-local" id="endInput">
+    </div>
+    <div class="field" id="goalField">
+      <label for="goalInput">Goal (hours)</label>
+      <select id="goalInput"></select>
+    </div>
+    <div class="err" id="sheetErr"></div>
+    <div class="row">
+      <button class="btn cancel" id="cancelBtn">Cancel</button>
+      <button class="btn save" id="saveBtn">Save</button>
+    </div>
+    <button class="btn delete" id="deleteBtn">Delete Fast</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const KEY = 'fast.v1';
+  const GOALS = [
+    [13, 'Circadian'], [16, '16:8'], [18, '18:6'], [20, '20:4'],
+    [24, 'OMAD+'], [36, 'Monk'], [48, '2 days'], [72, '3 days'],
+  ];
+  const HOUR = 3600e3;
+  const $ = id => document.getElementById(id);
+
+  // ---- state ----
+  let state = load();
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if (s && Array.isArray(s.history)) return s;
+    } catch (e) {}
+    return { active: null, goal: 16, history: [] };
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // ---- formatting ----
+  const pad = n => String(n).padStart(2, '0');
+  function dur(ms, secs = true) {
+    ms = Math.max(0, ms);
+    const t = Math.floor(ms / 1000);
+    const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+    return secs ? `${h}:${pad(m)}:${pad(s)}` : `${h}h ${pad(m)}m`;
+  }
+  function when(ts) {
+    const d = new Date(ts), now = new Date();
+    const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day0(now) - day0(d)) / 86400e3);
+    if (diff === 0) return `Today ${time}`;
+    if (diff === 1) return `Yesterday ${time}`;
+    if (diff === -1) return `Tomorrow ${time}`;
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ` ${time}`;
+  }
+  // datetime-local <-> timestamp (local time)
+  function toLocalInput(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function fromLocalInput(v) {
+    if (!v) return NaN;
+    const [date, time] = v.split('T');
+    const [y, mo, d] = date.split('-').map(Number);
+    const [h, mi] = time.split(':').map(Number);
+    return new Date(y, mo - 1, d, h, mi).getTime();
+  }
+
+  // ---- goal chips ----
+  function renderGoals() {
+    $('goals').innerHTML = GOALS.map(([h, name]) =>
+      `<button class="goal${h === state.goal ? ' sel' : ''}" data-h="${h}">${h}h<small>${name}</small></button>`
+    ).join('');
+  }
+  $('goals').addEventListener('click', e => {
+    const b = e.target.closest('.goal');
+    if (!b) return;
+    state.goal = +b.dataset.h;
+    save(); renderGoals(); tick();
+  });
+  $('goalInput').innerHTML = GOALS.map(([h, n]) => `<option value="${h}">${h}h · ${n}</option>`).join('');
+
+  // ---- ring ----
+  const ring = $('ring');
+  const C = 2 * Math.PI * 52;
+  ring.style.strokeDasharray = C;
+  function setRing(frac) {
+    ring.style.strokeDashoffset = C * (1 - Math.min(1, Math.max(0, frac)));
+  }
+
+  // ---- main render ----
+  function tick() {
+    const a = state.active;
+    $('activeView').hidden = !a;
+    $('idleView').hidden = !!a;
+    if (!a) {
+      $('status').textContent = 'Not fasting';
+      const last = state.history[0];
+      if (last) {
+        $('elapsed').textContent = dur(Date.now() - last.end, false);
+        $('remaining').textContent = 'since last fast';
+      } else {
+        $('elapsed').textContent = '0:00:00';
+        $('remaining').textContent = `Goal: ${state.goal}h`;
+      }
+      $('pct').textContent = '';
+      $('ringWrap').classList.remove('done');
+      setRing(0);
+      return;
+    }
+    const now = Date.now();
+    const goalMs = a.goal * HOUR;
+    const el = now - a.start;
+    const frac = el / goalMs;
+    const done = el >= goalMs;
+    $('status').textContent = done ? 'Goal reached 🎉' : 'Fasting';
+    $('elapsed').textContent = dur(el);
+    $('remaining').textContent = done ? `+${dur(el - goalMs)} past goal` : `${dur(goalMs - el)} left`;
+    $('pct').textContent = `${Math.floor(frac * 100)}%`;
+    $('ringWrap').classList.toggle('done', done);
+    setRing(frac);
+    $('startVal').textContent = when(a.start);
+    $('goalVal').textContent = when(a.start + goalMs);
+    $('goalHrs').textContent = `${a.goal}h goal · Edit`;
+  }
+
+  function renderHistory() {
+    const h = state.history;
+    $('history').innerHTML = h.length ? h.map((f, i) => {
+      const len = f.end - f.start;
+      const hit = len >= f.goal * HOUR;
+      return `<li data-i="${i}">
+        <span class="dot${hit ? ' hit' : ''}"></span>
+        <div class="h-main"><div class="h-dur">${dur(len, false)}</div><div class="h-when">${when(f.start)}</div></div>
+        <div class="h-goal">${f.goal}h ${hit ? '✓' : ''}</div>
+      </li>`;
+    }).join('') : '<div class="empty">No fasts yet. Tap a fast to edit it.</div>';
+
+    $('statCount').textContent = h.length;
+    if (h.length) {
+      const lens = h.map(f => f.end - f.start);
+      const avg = lens.reduce((x, y) => x + y, 0) / lens.length;
+      $('statAvg').textContent = (avg / HOUR).toFixed(1) + 'h';
+      $('statLong').textContent = (Math.max(...lens) / HOUR).toFixed(1) + 'h';
+    } else {
+      $('statAvg').textContent = $('statLong').textContent = '–';
+    }
+  }
+
+  function sortHistory() { state.history.sort((a, b) => b.start - a.start); }
+  function renderAll() { renderGoals(); renderHistory(); tick(); }
+
+  // ---- actions ----
+  $('startBtn').onclick = () => {
+    state.active = { start: Date.now(), goal: state.goal };
+    save(); renderAll();
+  };
+  $('startEarlierBtn').onclick = () => openSheet({ mode: 'new' });
+  $('editStartBtn').onclick = () => openSheet({ mode: 'active' });
+  $('editGoalBtn').onclick = () => openSheet({ mode: 'active' });
+  $('endBtn').onclick = () => {
+    const a = state.active;
+    if (!confirm(`End fast at ${dur(Date.now() - a.start, false)}?`)) return;
+    state.history.push({ start: a.start, end: Date.now(), goal: a.goal });
+    state.active = null;
+    sortHistory(); save(); renderAll();
+  };
+  $('history').addEventListener('click', e => {
+    const li = e.target.closest('li');
+    if (li) openSheet({ mode: 'past', index: +li.dataset.i });
+  });
+
+  // ---- edit sheet ----
+  let ctx = null;
+  function openSheet(c) {
+    ctx = c;
+    const now = Date.now();
+    let start, end = null, goal;
+    if (c.mode === 'new') { start = now - HOUR; goal = state.goal; }
+    else if (c.mode === 'active') { start = state.active.start; goal = state.active.goal; }
+    else { const f = state.history[c.index]; start = f.start; end = f.end; goal = f.goal; }
+
+    $('sheetTitle').textContent = { new: 'Start a fast earlier', active: 'Edit current fast', past: 'Edit fast' }[c.mode];
+    $('startInput').value = toLocalInput(start);
+    $('startInput').max = toLocalInput(now);
+    $('endField').hidden = c.mode !== 'past';
+    if (end) $('endInput').value = toLocalInput(end);
+    $('endInput').max = toLocalInput(now);
+    if (![...$('goalInput').options].some(o => +o.value === goal)) {
+      $('goalInput').insertAdjacentHTML('beforeend', `<option value="${goal}">${goal}h</option>`);
+    }
+    $('goalInput').value = goal;
+    $('deleteBtn').hidden = c.mode === 'new';
+    $('deleteBtn').textContent = c.mode === 'active' ? 'Cancel Fast (discard)' : 'Delete Fast';
+    $('sheetErr').textContent = '';
+    $('sheetBg').classList.add('open');
+  }
+  function closeSheet() { $('sheetBg').classList.remove('open'); ctx = null; }
+
+  $('startQuick').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const cur = fromLocalInput($('startInput').value);
+    if (isNaN(cur)) return;
+    $('startInput').value = toLocalInput(cur + (+b.dataset.min) * 60e3);
+  });
+  $('cancelBtn').onclick = closeSheet;
+  $('sheetBg').addEventListener('click', e => { if (e.target === $('sheetBg')) closeSheet(); });
+
+  $('saveBtn').onclick = () => {
+    const err = m => { $('sheetErr').textContent = m; };
+    const now = Date.now();
+    const start = fromLocalInput($('startInput').value);
+    const goal = +$('goalInput').value;
+    if (isNaN(start)) return err('Pick a start time.');
+    if (start > now + 60e3) return err('Start time can’t be in the future.');
+
+    if (ctx.mode === 'past') {
+      const end = fromLocalInput($('endInput').value);
+      if (isNaN(end)) return err('Pick an end time.');
+      if (end <= start) return err('End must be after start.');
+      if (end > now + 60e3) return err('End time can’t be in the future.');
+      state.history[ctx.index] = { start, end, goal };
+      sortHistory();
+    } else {
+      state.active = { start: Math.min(start, now), goal };
+      state.goal = goal;
+    }
+    save(); closeSheet(); renderAll();
+  };
+
+  $('deleteBtn').onclick = () => {
+    if (ctx.mode === 'active') {
+      if (!confirm('Discard this fast without saving it?')) return;
+      state.active = null;
+    } else {
+      if (!confirm('Delete this fast?')) return;
+      state.history.splice(ctx.index, 1);
+    }
+    save(); closeSheet(); renderAll();
+  };
+
+  // ---- go ----
+  renderAll();
+  setInterval(tick, 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(); });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
